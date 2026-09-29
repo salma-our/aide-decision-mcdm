@@ -32,7 +32,7 @@ mcdm/
   weighting.py      AHP, BWM, DEMATEL, Entropie, CRITIC
   ranking.py        WSM, WPM, WASPAS, TOPSIS, VIKOR  + registre RANKING_METHODS
   analysis.py       Spearman, sensibilité
-  examples.py       emplacement réservé aux jeux de données d'exemple
+ 
 ```
 
 ## Ajouter une méthode
