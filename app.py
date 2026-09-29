@@ -1,15 +1,14 @@
 """
 Aide à la décision multicritère (MCDM) — Application Streamlit
-Cours : Aide à la décision — Partie 1 (EMI)
 
 Lancer :  streamlit run app.py
 
-Méthodes implémentées (Partie 1) :
+Méthodes implémentées :
   Pondération  : Saisie directe, AHP, BWM, DEMATEL (subjectives) ; Entropie, CRITIC (objectives)
   Classement   : WSM, WPM, WASPAS, TOPSIS, VIKOR, AHP (complet)
   Robustesse   : comparaison des classements (Spearman) et analyse de sensibilité des poids
 
-Pour ajouter une méthode au fil du cours :
+Pour ajouter une méthode :
   1. écrire la fonction de calcul dans mcdm/weighting.py ou mcdm/ranking.py
      (elle renvoie {"weights"|"scores", "steps": [(titre, DataFrame|texte)], ...})
   2. pour un classement, l'ajouter au dictionnaire RANKING_METHODS (mcdm/ranking.py)
@@ -26,10 +25,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from mcdm import analysis, examples, ranking, weighting
+from mcdm import analysis, ranking, weighting
 from mcdm.utils import BENEFIT, COST, to_float_matrix
 
-st.set_page_config(page_title="Aide à la décision multicritère", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Aide à la décision multicritère", layout="wide")
 
 ss = st.session_state
 ss["_run"] = ss.get("_run", 0) + 1
@@ -174,7 +173,7 @@ def bar_scores(labels, scores, score_name, higher_is_better=True):
     st.plotly_chart(fig)
 
 
-def download_csv(df: pd.DataFrame, filename: str, label="⬇️ Télécharger (CSV)"):
+def download_csv(df: pd.DataFrame, filename: str, label="Télécharger (CSV)"):
     st.download_button(label, df.to_csv(sep=";", decimal=",").encode("utf-8-sig"),
                        file_name=filename, mime="text/csv")
 
@@ -196,35 +195,14 @@ def load_problem(alts, crits, types, X, weights, source="Saisie directe", extra=
     reset_editors()
 
 
-def load_example(name: str):
-    if name in examples.EXAMPLES:
-        e = examples.EXAMPLES[name]
-        load_problem(e["alternatives"], e["criteria"], e["types"], e["matrix"], e["weights"])
-        ss["suggested_method"] = e["method"]
-    elif name.startswith("AHP"):
-        e = examples.AHP_EXAMPLE
-        crits, alts = e["criteria"], e["alternatives"]
-        crit_df = pd.DataFrame(e["criteria_matrix"], index=crits, columns=crits)
-        alt_dfs = [pd.DataFrame(M, index=alts, columns=alts) for M in e["alt_matrices"]]
-        w = weighting.ahp_weights(to_float_matrix(crit_df).to_numpy(), crits)["weights"]
-        load_problem(alts, crits, [BENEFIT] * len(crits), np.full((len(alts), len(crits)), np.nan), w,
-                     source="AHP", extra={"ahp_crit_init": crit_df, "ahp_alt_init": alt_dfs})
-        ss["suggested_method"] = "AHP"
-    elif name.startswith("BWM"):
-        e = examples.BWM_EXAMPLE
-        crits = e["criteria"]
-        bwm_df = pd.DataFrame([e["BO"], e["OW"]], index=["BO (Best → autres)", "OW (autres → Worst)"],
-                              columns=crits).astype(float)
-        load_problem(["F1", "F2", "F3"], crits, [BENEFIT] * len(crits), np.full((3, len(crits)), np.nan),
-                     [1 / len(crits)] * len(crits),
-                     extra={"bwm_init": bwm_df, "bwm_best": 0, "bwm_worst": len(crits) - 1})
-        ss["suggested_method"] = "BWM"
+def new_problem(m: int = 3, n: int = 3):
+    """Problème vierge : m alternatives × n critères, matrice vide, poids égaux."""
+    load_problem([f"A{k+1}" for k in range(m)], [f"C{k+1}" for k in range(n)], [BENEFIT] * n,
+                 np.full((m, n), np.nan), [1 / n] * n)
 
-
-EXAMPLE_NAMES = list(examples.EXAMPLES) + ["AHP — Achat d'une voiture (exercice)", "BWM — Choix d'un fournisseur"]
 
 if "alts" not in ss:
-    load_example(EXAMPLE_NAMES[0])
+    new_problem()
 
 
 def current_problem():
@@ -241,18 +219,13 @@ def current_problem():
 # ============================================================================
 # Barre latérale
 # ============================================================================
-st.sidebar.title("⚖️ Aide à la décision")
-st.sidebar.caption("Analyse multicritère (MCDM) — Partie 1")
-page = st.sidebar.radio("Navigation", ["🏠 Accueil", "1️⃣ Données du problème", "2️⃣ Pondération des critères",
-                                       "3️⃣ Classement des alternatives", "4️⃣ Comparaison & robustesse"])
+st.sidebar.title("Aide à la décision")
+st.sidebar.caption("Analyse multicritère (MCDM)")
+page = st.sidebar.radio("Navigation", ["Accueil", "1. Données du problème", "2. Pondération des critères",
+                                       "3. Classement des alternatives", "4. Comparaison & robustesse"])
 st.sidebar.divider()
-st.sidebar.markdown("**📚 Exercices du cours**")
-ex_choice = st.sidebar.selectbox("Exercice", EXAMPLE_NAMES, label_visibility="collapsed")
-if st.sidebar.button("Charger l'exercice"):
-    load_example(ex_choice)
-    st.sidebar.success("Exercice chargé.")
-if st.sidebar.button("🆕 Nouveau problème vide (3 × 3)"):
-    load_problem(["A1", "A2", "A3"], ["C1", "C2", "C3"], [BENEFIT] * 3, np.full((3, 3), np.nan), [1 / 3] * 3)
+if st.sidebar.button("Nouveau problème vide (3 × 3)"):
+    new_problem()
 st.sidebar.divider()
 st.sidebar.markdown(f"**Problème courant** : {len(ss['alts'])} alternatives × {len(ss['crits'])} critères")
 st.sidebar.markdown(f"**Poids** : {ss.get('weights_source', 'Saisie directe')}")
@@ -265,11 +238,11 @@ st.sidebar.dataframe(pd.DataFrame({"Type": ss["types"], "Poids": np.round(_w, 4)
 # Pages
 # ============================================================================
 def page_home():
-    st.title("⚖️ Aide à la décision multicritère (MCDM)")
+    st.title("Aide à la décision multicritère (MCDM)")
     st.markdown(
-        "Cette plateforme accompagne le cours **Aide à la décision**. Vous saisissez le problème "
+        "Cette plateforme aide à résoudre tout problème de décision multicritère. Vous saisissez le problème "
         "(alternatives, critères, matrice de décision), vous choisissez une méthode, et l'application "
-        "calcule le résultat **en détaillant chaque étape** comme dans le cours."
+        "calcule le résultat **en détaillant chaque étape**."
     )
     c1, c2, c3, c4 = st.columns(4)
     c1.info("**1. Données**\n\nAlternatives, critères (+/−), matrice de décision, import/export.")
@@ -277,7 +250,7 @@ def page_home():
     c3.info("**3. Classement**\n\nWSM, WPM, WASPAS, TOPSIS, VIKOR, AHP complet.")
     c4.info("**4. Robustesse**\n\nComparaison des méthodes (Spearman) et sensibilité des poids.")
 
-    st.subheader("Méthodes disponibles (Partie 1)")
+    st.subheader("Méthodes disponibles")
     st.dataframe(pd.DataFrame([
         ["Pondération — subjective", "AHP", "Comparaisons par paires (échelle de Saaty 1–9), λmax, CI, CR < 0,1"],
         ["Pondération — subjective", "BWM", "Best / Worst, 2n − 3 comparaisons, programme linéaire, ξ*"],
@@ -293,18 +266,19 @@ def page_home():
 
     st.subheader("Quelle méthode choisir ?")
     st.markdown(
-        "- **Données exactes** → méthodes *crisp* (cette partie) ; jugements imprécis → méthodes floues (parties suivantes).\n"
+        "- **Données exactes** → méthodes *crisp* ; jugements imprécis → méthodes floues.\n"
         "- **Effort demandé au décideur** : AHP exige n(n−1)/2 comparaisons, BWM seulement 2n−3, "
         "CRITIC et Entropie aucune.\n"
         "- **Compensation acceptée** → méthodes additives (WSM, TOPSIS, VIKOR…).\n"
         "- **Bonnes pratiques** : appliquer plusieurs méthodes, comparer les classements (Spearman) et "
         "mener une analyse de sensibilité sur les poids (page 4)."
     )
-    st.caption("💡 Chargez un exercice du cours depuis la barre latérale pour tester rapidement.")
+    st.caption("Pour commencer, renseignez votre problème dans la page « 1. Données du problème » "
+               "ou importez un fichier CSV / Excel.")
 
 
 def page_data():
-    st.title("1️⃣ Données du problème")
+    st.title("1. Données du problème")
     st.caption("Saisissez les alternatives, les critères (sens : Max = critère positif, Min = critère négatif), "
                "leurs poids et la matrice de décision. Les valeurs décimales acceptent le point.")
 
@@ -355,9 +329,9 @@ def page_data():
         st.warning("Certaines cases sont vides : complétez la matrice avant de lancer une méthode de classement "
                    "(sauf AHP complet, qui n'utilise pas la matrice).")
     else:
-        st.success("Matrice complète ✅")
+        st.success("Matrice complète.")
 
-    with st.expander("📥 Importer / 📤 Exporter"):
+    with st.expander("Importer / Exporter"):
         st.markdown(
             "Format du fichier (CSV `;` ou Excel) : la **première colonne** contient les alternatives, la "
             "**première ligne** les critères. Deux lignes facultatives nommées **Type** (Max / Min) et "
@@ -386,7 +360,7 @@ def page_data():
                 data = df.drop(index=[i for i in [tcol, pcol] if i])
                 Xin = to_float_matrix(data)
                 load_problem([str(a) for a in data.index], [str(c) for c in data.columns], types_in, Xin.to_numpy(), w_in)
-                st.success("Fichier importé ✅")
+                st.success("Fichier importé.")
                 st.rerun()
             except Exception as e:  # noqa: BLE001
                 st.error(f"Import impossible : {e}")
@@ -394,13 +368,13 @@ def page_data():
         export = X.copy().astype(object)
         export.loc["Type"] = ["Max" if t == BENEFIT else "Min" for t in types]
         export.loc["Poids"] = weights
-        download_csv(export, "probleme_mcdm.csv", "⬇️ Exporter le problème (CSV)")
+        download_csv(export, "probleme_mcdm.csv", "Exporter le problème (CSV)")
 
 
 # ----------------------------------------------------------------------------
 def apply_weights_button(w, source):
     w = np.asarray(w, float)
-    if st.button(f"✅ Utiliser ces poids ({source}) pour le classement", type="primary"):
+    if st.button(f"Utiliser ces poids ({source}) pour le classement", type="primary"):
         ss["weights"] = list(map(float, w / w.sum()))
         ss["weights_source"] = source
         reset_editors("crit")
@@ -408,11 +382,10 @@ def apply_weights_button(w, source):
 
 
 def page_weighting():
-    st.title("2️⃣ Pondération des critères")
+    st.title("2. Pondération des critères")
     crits, alts, types = ss["crits"], ss["alts"], ss["types"]
     n = len(crits)
-    default = ss.get("suggested_method") if ss.get("suggested_method") in WEIGHT_METHODS else "Saisie directe"
-    method = st.selectbox("Méthode de pondération", WEIGHT_METHODS, index=WEIGHT_METHODS.index(default),
+    method = st.selectbox("Méthode de pondération", WEIGHT_METHODS,
                           help="Subjectives : AHP, BWM, DEMATEL — Objectives : Entropie, CRITIC")
 
     # --------------------------------------------------------------- Saisie directe
@@ -426,11 +399,11 @@ def page_weighting():
     elif method == "AHP":
         st.markdown(f"Comparez les critères deux à deux (échelle de Saaty). "
                     f"Nombre de comparaisons : **n(n−1)/2 = {n*(n-1)//2}**. Les fractions sont acceptées (ex. `1/7`).")
-        with st.expander("📏 Échelle de Saaty"):
+        with st.expander("Échelle de Saaty"):
             st.dataframe(weighting.SAATY_SCALE, hide_index=True)
         c1, c2 = st.columns(2)
         auto = c1.toggle("Compléter automatiquement le triangle inférieur (a_ji = 1/a_ij)", value=True)
-        calc = c2.radio("Calcul du vecteur propre", ["Méthode approximative (cours)", "Vecteur propre exact"],
+        calc = c2.radio("Calcul du vecteur propre", ["Méthode approximative", "Vecteur propre exact"],
                         horizontal=True)
         init = ss.get("ahp_crit_init")
         if init is None or list(init.index) != crits:
@@ -451,9 +424,9 @@ def page_weighting():
             if not res["consistent"]:
                 st.error("CR ≥ 0,1 : les jugements sont incohérents, révisez la matrice de comparaison.")
             if n > 10:
-                st.caption("n > 10 : la valeur de RI est indicative (le tableau du cours s'arrête à n = 10).")
+                st.caption("n > 10 : la valeur de RI est indicative (tableau de Saaty au-delà de n = 10).")
             bar_weights(crits, res["weights"], "Poids AHP")
-            with st.expander("🔎 Détail des calculs", expanded=True):
+            with st.expander("Détail des calculs", expanded=True):
                 show_steps(res["steps"])
             apply_weights_button(res["weights"], "AHP")
         except ValueError as e:
@@ -487,7 +460,7 @@ def page_weighting():
                 st.warning(msg)
             st.metric("ξ* (indicateur de cohérence, proche de 0 = cohérent)", f"{res['xi']:.4f}")
             bar_weights(crits, res["weights"], "Poids BWM")
-            with st.expander("🔎 Détail des calculs (programme linéaire)", expanded=True):
+            with st.expander("Détail des calculs (programme linéaire)", expanded=True):
                 show_steps(res["steps"])
             apply_weights_button(res["weights"], "BWM")
         except ValueError as e:
@@ -519,7 +492,7 @@ def page_weighting():
                 fig.update_traces(textposition="top center", marker_size=12)
                 fig.update_layout(height=340, margin=dict(t=50, b=10))
                 st.plotly_chart(fig)
-            with st.expander("🔎 Détail des calculs", expanded=True):
+            with st.expander("Détail des calculs", expanded=True):
                 show_steps(res["steps"])
                 st.markdown(f"**Relations significatives** (t_ij > seuil = moyenne de T = {res['threshold']:.4f}) :")
                 st.markdown("\n".join(f"- {a} → {b_} ({v:.3f})" for a, b_, v in res["links"]) or "_aucune_")
@@ -539,7 +512,7 @@ def page_weighting():
                 raise ValueError("Complétez la matrice de décision (page 1).")
             res = weighting.entropy_weights(X, crits, alts, types, "linear" if pre.startswith("Matrice normalisée") else "none")
             bar_weights(crits, res["weights"], "Poids par l'entropie")
-            with st.expander("🔎 Détail des calculs", expanded=True):
+            with st.expander("Détail des calculs", expanded=True):
                 show_steps(res["steps"])
             apply_weights_button(res["weights"], "Entropie")
         except ValueError as e:
@@ -563,7 +536,7 @@ def page_weighting():
                                 color_continuous_scale="RdBu", title="Corrélations ρ_jk")
                 fig.update_layout(height=340, margin=dict(t=50, b=10))
                 st.plotly_chart(fig)
-            with st.expander("🔎 Détail des calculs", expanded=True):
+            with st.expander("Détail des calculs", expanded=True):
                 show_steps(res["steps"])
             apply_weights_button(res["weights"], "CRITIC")
         except ValueError as e:
@@ -577,19 +550,15 @@ def method_params(name: str, key_prefix: str) -> dict:
     if name == "VIKOR":
         c1, c2 = st.columns(2)
         v = c1.slider("v (stratégie de la majorité)", 0.0, 1.0, 0.5, 0.05, key=f"{key_prefix}_v")
-        strict = c2.toggle("C2 stricte : meilleur selon S **et** R (cours)", value=True, key=f"{key_prefix}_strict",
+        strict = c2.toggle("C2 stricte : meilleur selon S **et** R", value=True, key=f"{key_prefix}_strict",
                            help="Désactivé : meilleur selon S et/ou R (Opricovic)")
         return {"v": v, "strict": strict}
     return {}
 
 
 def page_ranking():
-    st.title("3️⃣ Classement des alternatives")
-    default = ss.get("suggested_method")
-    if default == "AHP":
-        default = "AHP (complet)"
-    idx = RANK_METHODS.index(default) if default in RANK_METHODS else 3
-    method = st.selectbox("Méthode de classement", RANK_METHODS, index=idx)
+    st.title("3. Classement des alternatives")
+    method = st.selectbox("Méthode de classement", RANK_METHODS, index=RANK_METHODS.index("TOPSIS"))
     st.caption(f"Poids utilisés : **{ss.get('weights_source', 'Saisie directe')}** — modifiables en page 1 ou 2.")
 
     if method == "AHP (complet)":
@@ -597,7 +566,7 @@ def page_ranking():
         return
 
     desc, formulas = METHOD_INFO[method]
-    with st.expander(f"📘 Rappel : {method} — {desc}"):
+    with st.expander(f"Rappel : {method} — {desc}"):
         for f in formulas:
             st.latex(f)
     params = method_params(method, "rank")
@@ -616,10 +585,10 @@ def page_ranking():
     best = res["result"].index[0]
     if method == "VIKOR":
         comp = res["compromise"]
-        st.success(f"🏆 Solution de compromis : **{', '.join(comp)}**" +
+        st.success(f"Solution de compromis : **{', '.join(comp)}**" +
                    ("" if len(comp) == 1 else " (ensemble de compromis)"))
     else:
-        st.success(f"🏆 Meilleure alternative selon {method} : **{best}**")
+        st.success(f"Meilleure alternative selon {method} : **{best}**")
 
     c1, c2 = st.columns([1, 1])
     with c1:
@@ -629,7 +598,7 @@ def page_ranking():
     with c2:
         name = {"WSM": "Q¹", "WPM": "Q²", "WASPAS": "Q", "TOPSIS": "RC*", "VIKOR": "Q"}[method]
         bar_scores(alts, res["scores"], name, res["higher_is_better"])
-    with st.expander("🔎 Détail des calculs, étape par étape", expanded=True):
+    with st.expander("Détail des calculs, étape par étape", expanded=True):
         show_steps(res["steps"])
 
 
@@ -641,7 +610,7 @@ def page_ahp_full():
     w = np.asarray(ss["weights"], float)
     w = w / w.sum()
     if ss.get("weights_source") != "AHP":
-        st.info("Les poids actuels ne proviennent pas d'AHP. Pour suivre la démarche du cours, calculez-les "
+        st.info("Les poids actuels ne proviennent pas d'AHP. Pour une démarche AHP complète, calculez-les "
                 "d'abord par AHP (page 2) puis cliquez sur « Utiliser ces poids ».")
     bar_weights(crits, w, f"Poids des critères ({ss.get('weights_source')})")
     auto = st.toggle("Compléter automatiquement le triangle inférieur (a_ji = 1/a_ij)", value=True, key="ahpfull_auto")
@@ -661,7 +630,7 @@ def page_ahp_full():
                         st.warning(msg)
                 r = weighting.ahp_weights(A, alts)
                 local[:, j] = r["weights"]
-                cr_rows.append([c, r["lambda_max"], r["CI"], r["CR"], "Oui ✅" if r["consistent"] or m <= 2 else "Non ❌"])
+                cr_rows.append([c, r["lambda_max"], r["CI"], r["CR"], "Oui" if r["consistent"] or m <= 2 else "Non"])
                 with st.expander("Détail"):
                     show_steps(r["steps"])
             except ValueError as e:
@@ -679,7 +648,7 @@ def page_ahp_full():
     final["Rang"] = pd.Series(scores, index=alts).rank(ascending=False, method="min").astype(int)
     final = final.sort_values("Rang")
     wrow = pd.DataFrame([list(w) + [np.nan, np.nan]], index=["Poids des critères"], columns=final.columns)
-    st.success(f"🏆 Meilleure alternative selon AHP : **{final.index[0]}**")
+    st.success(f"Meilleure alternative selon AHP : **{final.index[0]}**")
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**Priorités locales et priorités globales**")
@@ -691,7 +660,7 @@ def page_ahp_full():
 
 # ----------------------------------------------------------------------------
 def page_compare():
-    st.title("4️⃣ Comparaison des méthodes & robustesse")
+    st.title("4. Comparaison des méthodes & robustesse")
     try:
         X, w, types, crits, alts = current_problem()
     except ValueError as e:
@@ -709,7 +678,7 @@ def page_compare():
         st.error(str(e))
         return
 
-    tab1, tab2 = st.tabs(["📊 Comparaison des classements", "🎚️ Analyse de sensibilité"])
+    tab1, tab2 = st.tabs(["Comparaison des classements", "Analyse de sensibilité"])
     with tab1:
         rt = analysis.ranks_table(results, alts)
         scores = pd.DataFrame({k: r["scores"] for k, r in results.items()}, index=alts)
@@ -768,10 +737,10 @@ def page_compare():
 
 # ============================================================================
 PAGES = {
-    "🏠 Accueil": page_home,
-    "1️⃣ Données du problème": page_data,
-    "2️⃣ Pondération des critères": page_weighting,
-    "3️⃣ Classement des alternatives": page_ranking,
-    "4️⃣ Comparaison & robustesse": page_compare,
+    "Accueil": page_home,
+    "1. Données du problème": page_data,
+    "2. Pondération des critères": page_weighting,
+    "3. Classement des alternatives": page_ranking,
+    "4. Comparaison & robustesse": page_compare,
 }
 PAGES[page]()

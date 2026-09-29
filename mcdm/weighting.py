@@ -18,7 +18,7 @@ from .utils import BENEFIT, check_decision_matrix, is_benefit
 # ---------------------------------------------------------------------------
 # AHP
 # ---------------------------------------------------------------------------
-# Indice aléatoire RI (valeurs du cours pour n = 3..10 ; Saaty pour n > 10)
+# Indice aléatoire RI (valeurs usuelles pour n = 3..10 ; Saaty pour n > 10)
 RI_TABLE = {1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41,
             9: 1.45, 10: 1.56, 11: 1.57, 12: 1.58, 13: 1.59, 14: 1.60, 15: 1.61}
 
@@ -57,7 +57,7 @@ def ahp_check_reciprocal(A: np.ndarray, tol: float = 0.02) -> list[str]:
 def ahp_weights(A, labels: list[str], method: str = "approx") -> dict:
     """Poids AHP + test de cohérence.
 
-    method = "approx"  : méthode approximative du cours (normalisation par colonnes + moyenne des lignes)
+    method = "approx"  : méthode approximative (normalisation par colonnes + moyenne des lignes)
     method = "eigen"   : vecteur propre exact associé à λmax
     """
     A = np.asarray(A, dtype=float)
@@ -104,7 +104,7 @@ def ahp_weights(A, labels: list[str], method: str = "approx") -> dict:
     formula = "λmax = Σ s_j × w_j" if method != "eigen" else "λmax = plus grande valeur propre de A"
     cons = pd.DataFrame({
         "Indicateur": ["n", "λmax", "CI = (λmax − n)/(n − 1)", "RI", "CR = CI / RI", "Cohérente (CR < 0,1) ?"],
-        "Valeur": [n, round(lam, 4), round(CI, 4), RI, round(CR, 4), "Oui ✅" if consistent else "Non ❌"],
+        "Valeur": [n, round(lam, 4), round(CI, 4), RI, round(CR, 4), "Oui" if consistent else "Non"],
     })
     steps.append((f"Test de cohérence ({formula})", cons))
 

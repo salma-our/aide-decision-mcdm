@@ -23,7 +23,7 @@ def _result_table(alt_labels, cols: dict, rank_col: str) -> pd.DataFrame:
 # Normalisation linéaire (méthodes de pondération simple)
 # ---------------------------------------------------------------------------
 def linear_normalize(X, types, mode: str = "max"):
-    """mode = "max"   : r = x/max (+) ;  r = min/x (−)   [formule du cours]
+    """mode = "max"   : r = x/max (+) ;  r = min/x (−)   [normalisation linéaire max]
     Retourne (R, x_plus, x_minus)."""
     X = np.asarray(X, dtype=float)
     ben = is_benefit(types)
@@ -163,26 +163,26 @@ def vikor(X, w, types, crit_labels, alt_labels, v: float = 0.5, strict: bool = T
     a1, a2 = order[0], order[1]
     DQ = 1.0 / (m - 1)
     c1 = (Q[a2] - Q[a1]) >= DQ - 1e-12
-    # Condition de stabilité (définition du cours) : A' doit être aussi le meilleur selon S ET R
+    # Condition de stabilité (version stricte) : A' doit être aussi le meilleur selon S ET R
     # (Opricovic accepte « S et/ou R » : option strict=False)
     c2 = (S[a1] == S.min()) and (R[a1] == R.min()) if strict else (S[a1] == S.min()) or (R[a1] == R.min())
     lines = [
         f"A' = {alt_labels[a1]} (meilleur Q = {Q[a1]:.4f}),  A'' = {alt_labels[a2]} (Q = {Q[a2]:.4f})",
         f"DQ = 1/(m − 1) = {DQ:.4f}",
         f"C1 — Avantage acceptable : Q(A'') − Q(A') = {Q[a2] - Q[a1]:.4f} {'≥' if c1 else '<'} {DQ:.4f} → "
-        f"{'satisfaite ✅' if c1 else 'non satisfaite ❌'}",
-        f"C2 — Stabilité acceptable : A' est aussi le meilleur selon S {'✅' if S[a1] == S.min() else '❌'} "
-        f"{'et' if strict else 'et/ou'} selon R {'✅' if R[a1] == R.min() else '❌'} → {'satisfaite ✅' if c2 else 'non satisfaite ❌'}",
+        f"{'satisfaite' if c1 else 'non satisfaite'}",
+        f"C2 — Stabilité acceptable : A' est aussi le meilleur selon S ({'oui' if S[a1] == S.min() else 'non'}) "
+        f"{'et' if strict else 'et/ou'} selon R ({'oui' if R[a1] == R.min() else 'non'}) → {'satisfaite' if c2 else 'non satisfaite'}",
     ]
     if c1 and c2:
         compromise = [alt_labels[a1]]
-        lines.append(f"➡️ Solution de compromis : **{alt_labels[a1]}**")
+        lines.append(f"Solution de compromis : **{alt_labels[a1]}**")
     elif c1 and not c2:
         compromise = [alt_labels[a1], alt_labels[a2]]
-        lines.append(f"➡️ Seule C2 n'est pas satisfaite : solutions de compromis **{alt_labels[a1]}** et **{alt_labels[a2]}**")
+        lines.append(f"Seule C2 n'est pas satisfaite : solutions de compromis **{alt_labels[a1]}** et **{alt_labels[a2]}**")
     else:
         compromise = [alt_labels[k] for k in order if Q[k] - Q[a1] < DQ - 1e-12]
-        lines.append("➡️ C1 n'est pas satisfaite : ensemble de compromis {A', …, A^k} avec Q(A^k) − Q(A') < DQ : **"
+        lines.append("C1 n'est pas satisfaite : ensemble de compromis {A', …, A^k} avec Q(A^k) − Q(A') < DQ : **"
                      + ", ".join(compromise) + "**")
     steps.append(("5) Solution de compromis", "\n\n".join(lines)))
     return {"result": res, "scores": Q, "ranks": rQ, "higher_is_better": False, "steps": steps,
